@@ -1,0 +1,335 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Polymarket Odds & Arbitrage Delta API",
+    "version": "1.0.0",
+    "description": "Sub-millisecond Polymarket prediction market implied probabilities, cross-platform odds conversion (decimal/American), quant arbitrage mispricing delta detector, Kelly criterion bankroll position sizer, and execution slippage estimator for AI trading agents (ElizaOS, CCXT, Hummingbot).",
+    "contact": {
+      "name": "TopAI SaaS Studio Support",
+      "email": "top.ai.saas@gmail.com",
+      "url": "https://polymarket-arbitrage.topaisaas.workers.dev"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://polymarket-arbitrage.topaisaas.workers.dev",
+      "description": "Cloudflare Workers Global Edge (Primary Live)"
+    },
+    {
+      "url": "https://polymarket-arbitrage-api.p.rapidapi.com",
+      "description": "RapidAPI Gateway"
+    }
+  ],
+  "paths": {
+    "/v1/markets/search": {
+      "get": {
+        "summary": "Search Prediction Markets",
+        "description": "Search active Polymarket prediction markets by keywords, slug, or category. Returns outcome tokens, real-time YES/NO prices, implied probabilities, and 24h trading volume.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Keyword search query (e.g. 'fed', 'bitcoin', 'ai')",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter by category (e.g. 'Crypto', 'Economics', 'AI')",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of markets to return (1-50, default: 10)",
+            "required": false,
+            "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching prediction markets list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "count": { "type": "integer", "example": 1 },
+                    "source": { "type": "string", "example": "live_polymarket_clob" },
+                    "markets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "example": "poly-fed-rate-cut-2026" },
+                          "question": { "type": "string", "example": "Will the US Federal Reserve cut interest rates?" },
+                          "slug": { "type": "string", "example": "fed-rate-cut-next-meeting" },
+                          "category": { "type": "string", "example": "Economics / Macro" },
+                          "volume_24h_usd": { "type": "number", "example": 1425890 },
+                          "total_liquidity_usd": { "type": "number", "example": 8420000 },
+                          "outcomes": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": { "type": "string", "example": "Yes" },
+                                "price": { "type": "number", "example": 0.68 },
+                                "implied_probability_percent": { "type": "number", "example": 68.0 },
+                                "decimal_odds": { "type": "number", "example": 1.47 },
+                                "american_odds": { "type": "string", "example": "-213" }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/markets/trending": {
+      "get": {
+        "summary": "Get Trending Prediction Markets",
+        "description": "Fetch top trending prediction markets on Polymarket ranked by 24h trading volume and open interest liquidity.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of trending markets to retrieve (1-20, default: 6)",
+            "required": false,
+            "schema": { "type": "integer", "default": 6, "minimum": 1, "maximum": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trending markets retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "count": { "type": "integer", "example": 6 },
+                    "markets": { "type": "array", "items": { "type": "object" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/markets/{id}": {
+      "get": {
+        "summary": "Get Market Details by ID or Slug",
+        "description": "Retrieve comprehensive odds, spread in basis points, and probability metrics for a specific market condition ID or slug.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Market ID, slug, or condition ID",
+            "schema": { "type": "string", "example": "fed-rate-cut-next-meeting" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Market details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "market": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Market not found"
+          }
+        }
+      }
+    },
+    "/v1/arbitrage/delta": {
+      "post": {
+        "summary": "Calculate Arbitrage Delta & Mispricing",
+        "description": "Compare Polymarket odds against reference odds (e.g. Kalshi, Betfair, Las Vegas sportsbooks, or AI consensus) to identify mispriced opportunities, expected value ROI %, and optimal Kelly Criterion bankroll sizing.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["polymarket_price", "reference_odds"],
+                "properties": {
+                  "polymarket_price": {
+                    "type": "number",
+                    "description": "Polymarket price for YES contract (0.001 to 0.999)",
+                    "example": 0.62
+                  },
+                  "reference_odds": {
+                    "type": "object",
+                    "required": ["type", "value"],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": ["probability", "decimal", "american"],
+                        "description": "Format of the reference probability/odds",
+                        "example": "probability"
+                      },
+                      "value": {
+                        "type": "number",
+                        "description": "Reference value (e.g. 0.72 for 72% prob, 1.38 for decimal, -250 for American)",
+                        "example": 0.72
+                      }
+                    }
+                  },
+                  "min_spread_bps_threshold": {
+                    "type": "integer",
+                    "description": "Minimum spread in basis points to flag an active arbitrage signal (default: 150 bps = 1.5%)",
+                    "default": 150,
+                    "example": 150
+                  },
+                  "bankroll_usd": {
+                    "type": "number",
+                    "description": "Optional total bankroll to compute dollar position sizing",
+                    "example": 10000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Arbitrage delta and sizing result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "polymarket_implied_probability": { "type": "number", "example": 0.62 },
+                        "reference_implied_probability": { "type": "number", "example": 0.72 },
+                        "delta_basis_points": { "type": "integer", "example": 1000 },
+                        "delta_percent": { "type": "number", "example": 10.0 },
+                        "arbitrage_detected": { "type": "boolean", "example": true },
+                        "recommended_action": { "type": "string", "enum": ["BUY_YES", "BUY_NO", "FAIR_VALUE"], "example": "BUY_YES" },
+                        "expected_value_per_share": { "type": "number", "example": 0.1 },
+                        "expected_roi_percent": { "type": "number", "example": 16.13 },
+                        "risk_reward_ratio": { "type": "number", "example": 0.61 },
+                        "kelly_criterion": {
+                          "type": "object",
+                          "properties": {
+                            "full_kelly_percent": { "type": "number", "example": 26.32 },
+                            "half_kelly_percent": { "type": "number", "example": 13.16 },
+                            "quarter_kelly_percent": { "type": "number", "example": 6.58 },
+                            "recommended_position_usd": { "type": "number", "example": 1316 }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orderbook/slippage": {
+      "post": {
+        "summary": "Estimate Execution Slippage & Fill Price",
+        "description": "Calculate expected execution slippage, average fill price, and price impact for an order size given the total liquidity of the prediction pool.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["order_size_usd", "market_liquidity_usd", "base_price"],
+                "properties": {
+                  "order_size_usd": { "type": "number", "example": 2500 },
+                  "market_liquidity_usd": { "type": "number", "example": 500000 },
+                  "base_price": { "type": "number", "example": 0.68 },
+                  "direction": { "type": "string", "enum": ["BUY", "SELL"], "default": "BUY", "example": "BUY" },
+                  "base_spread_bps": { "type": "integer", "default": 50, "example": 50 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Slippage analysis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "order_size_usd": { "type": "number", "example": 2500 },
+                        "market_liquidity_usd": { "type": "number", "example": 500000 },
+                        "base_price": { "type": "number", "example": 0.68 },
+                        "estimated_fill_price": { "type": "number", "example": 0.6874 },
+                        "estimated_slippage_bps": { "type": "integer", "example": 109 },
+                        "estimated_slippage_percent": { "type": "number", "example": 1.09 },
+                        "total_slippage_cost_usd": { "type": "number", "example": 27.25 },
+                        "execution_rating": { "type": "string", "example": "MODERATE" },
+                        "max_recommended_single_chunk_usd": { "type": "integer", "example": 4200 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "summary": "Service Healthcheck",
+        "description": "Returns uptime, operational status, version, and server timestamp.",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "timestamp": { "type": "string", "example": "2026-09-20T18:44:00.000Z" },
+                    "version": { "type": "string", "example": "1.0.0" },
+                    "edge_runtime": { "type": "string", "example": "cloudflare_workers" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

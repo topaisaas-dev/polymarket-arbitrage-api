@@ -6,6 +6,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Uptime](https://img.shields.io/badge/Uptime-100%25-brightgreen.svg)](https://polymarket-arbitrage.topaisaas.workers.dev/v1/health)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-brightgreen.svg)](https://polymarket-arbitrage.topaisaas.workers.dev/openapi.json)
+[![RapidAPI](https://img.shields.io/badge/RapidAPI-Subscribe%20Free-blue.svg)](https://rapidapi.com/topaisaasdev/api/polymarket-odds-arbitrage-delta-api/pricing)
 
 Polymarket has become the world's most accurate real-time consensus engine for geopolitical, macroeconomic, and crypto events. However, algorithmic traders and autonomous agents (**ElizaOS, CCXT, Hummingbot, LangChain**) struggle with heavy WebSocket connections, complex CLOB parsing, and manual odds conversion.
 
